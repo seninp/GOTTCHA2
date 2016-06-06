@@ -31,7 +31,7 @@ Genomic Origin Through Taxonomic CHAllenge (GOTTCHA) is an annotation-
 independent and signature-based metagenomic taxonomic profiling tool that has
 significantly smaller FDR than other profiling tools. This program is a
 wrapper to map input reads to pre-computed signature databases using BWA-MEM
-and/or to profile mapped reads in SAM format. (VERSION: 2.0 Beta)
+and/or to profile mapped reads in SAM format. (VERSION: 2.0 ALPHA)
 
 optional arguments:
 
