@@ -8,6 +8,18 @@ generated from spiked environmental and clinical samples, and robustly demonstra
 superior performance compared with other available tools.
 
 -------------------------------------------------------------------
+## UPDATES
+
+1. No longer uses splitrim. Reports reads directly instead of hits.
+2. Allow mismatches by specifying penalty score for a mismatch (still requiring minimal 30bp continuing exact matches)
+3. Added “tree” mode to output all nodes in taxonomy lineage. It will be useful to reveal minor but important ranks, e.g. viral subtypes, groups...etc.
+4. Added “class” mode to output read classification results.
+5. Added “extract” mode to extract mapped reads.
+6. User can specify a taxonomy, the profiler will only output/extract results/reads belong to the taxa and it’s descendent.
+7. Performance improved. SAM file is processed in parallel.
+8. Implemented in Python 3.5, no additional dependency required.
+
+-------------------------------------------------------------------
 ## DISCLOSURE
 
 GOTTCHA2 is currently under development in ALPHA stage. Databases for v1 will not be compatible with v2.
