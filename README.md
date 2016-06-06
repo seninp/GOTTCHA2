@@ -10,7 +10,7 @@ superior performance compared with other available tools.
 -------------------------------------------------------------------
 ## DISCLOSURE
 
-GOTTCHAv2 is currently under development in ALPHA stage. Databases for v1 will not be compatible with v2.
+GOTTCHA2 is currently under development in ALPHA stage. Databases for v1 will not be compatible with v2.
 
 -------------------------------------------------------------------
 ## SYSTEM REQUIREMENT
