@@ -172,14 +172,16 @@ def parse(line):
 	read2   16  test    11  0   3S10M5S *   0   0   GGGCCCCCCCCCCGGGGG  HHHHHHHHHHHHHHHHHH  NM:i:0  MD:Z:10 AS:i:10 XS:i:0
 	"""
 	temp = line.split('\t')
-
 	name = temp[0]
 	match_len    = search('(\d+)M', temp[5])
 	mismatch_len = search('NM:i:(\d+)', temp[11])
 	start = int(temp[3])
 	end   = start + int(match_len.group(1)) - 1;
 
-	return temp[2], [start, end], int(mismatch_len.group(1)), name, temp[9], temp[10], temp[1], temp[5]
+	ref = temp[2].rstrip('|')
+	ref = ref[: ref.find(".0") if ref.find(".0")>0 else None ]
+
+	return ref, [start, end], int(mismatch_len.group(1)), name, temp[9], temp[10], temp[1], temp[5]
 
 def timeSpend( start ):
 	done = time.time()
@@ -323,6 +325,9 @@ def outputResultsAsTree( tid, res_tree, res_rollup, indent, taxid_fi, o, mc, mr,
 				if not isDescendant( tid, taxid_fi ):
 					continue
 
+			if mc > res_rollup[tid]["LL"]/res_rollup[tid]["SL"] or mr > int(res_rollup[tid]["MR"]) or ml > int(res_rollup[tid]["LL"]) :
+				continue
+
 			outputResultsAsTree( cid, res_tree, res_rollup, indent, taxid_fi, o, mc, mr, ml )
 
 def outputResultsAsRanks( res_rollup, o, tg_rank, relAbu, mode, mc, mr, ml ):
@@ -331,6 +336,10 @@ def outputResultsAsRanks( res_rollup, o, tg_rank, relAbu, mode, mc, mr, ml ):
 
 	for tid in res_rollup:
 		rank = gt.taxid2rank(tid)
+
+		if mode == "summary" and ( mc > res_rollup[tid]["LL"]/res_rollup[tid]["SL"] or mr > int(res_rollup[tid]["MR"]) or ml > int(res_rollup[tid]["LL"]) ):
+			continue
+
 		if rank in major_ranks and major_ranks[rank] <= major_ranks[tg_rank]:
 			if relAbu == "LINEAR_LENGTH":
 				abundance = int(res_rollup[tid]["LL"])
@@ -382,7 +391,7 @@ def outputResultsAsRanks( res_rollup, o, tg_rank, relAbu, mode, mc, mr, ml ):
 				  res_rollup[tid]["NM"],
 				  res_rollup[tid]["LL"],
 				  int(res_rollup[tid]["MB"])/int(res_rollup[tid]["LL"]),
-				  int(res_rollup[tid]["MB"])/int(res_rollup[tid]["LL"])/output[rank]["TOT_ABU"],
+				  output[rank]["RES"][tid]/output[rank]["TOT_ABU"],
 				  add_field
 				)
 			)
@@ -392,7 +401,7 @@ def readMapping( reads, db, threads, mm_penalty, samfile, logfile ):
 	mapping reads to database
 	"""
 	input_file = " ".join(reads)
-	bwa_cmd = "bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -P -S -t%s %s %s | samtools view -F4 > %s 2> %s" % ( mm_penalty, threads, db, input_file, samfile, logfile )
+	bwa_cmd = "bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -P -S -t%s %s %s | samtools view -S -F4 - > %s 2> %s" % ( mm_penalty, threads, db, input_file, samfile, logfile )
 	exitcode, msg = getstatusoutput( bwa_cmd )
 	return exitcode, bwa_cmd
 
@@ -420,6 +429,7 @@ if __name__ == '__main__':
            Input SAM file : %s
            Database       : %s
            Database level : %s
+           Abundance      : %s
            Output path    : %s
            Prefix         : %s
            Mode           : %s
@@ -428,7 +438,7 @@ if __name__ == '__main__':
            Minimal L_DOC  : %s
            Minimal L_LEN  : %s
            Minimal reads  : %s\n""" % (
-		timeSpend(start), argvs.input, samfile, argvs.database, argvs.dbLevel,
+		timeSpend(start), argvs.input, samfile, argvs.database, argvs.dbLevel, argvs.relAbu,
 		argvs.outdir, argvs.prefix, argvs.mode, argvs.taxonomy, argvs.threads, argvs.minCov, argvs.minLen, argvs.minReads
 	) if argvs.verbose else ""
 	sys.stderr.write( verbose_msg )
