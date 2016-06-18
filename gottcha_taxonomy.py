@@ -186,7 +186,8 @@ def _taxid2lineage(tid, print_all_rank, print_strain, replace_space2underscore, 
 			info[major_level[lvl]]["taxid"] = 0
 
 		last=level[lvl]
-		lineage.append( "%s__%s"%(lvl, level[lvl]) )
+		#lineage.append( "%s__%s"%(lvl, level[lvl]) )
+		lineage.append( level[lvl] )
 
 	lineage.reverse()
 

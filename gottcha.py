@@ -58,13 +58,14 @@ def parse_params( ver ):
 					help="Mismatch penalty for BWA-MEM (pass to option -B while BWA-MEM is running). You can use 99 for not allowing mismatch in alignments (except for extreme cases). [default: 5]")
 
 	p.add_argument( '-m','--mode', type=str, default='summary',
-	                choices=['summary', 'full', 'tree', 'class', 'extract'],
+	                choices=['summary', 'full', 'tree', 'class', 'extract', 'lineage'],
 					help="""You can specify one of the following output modes:
                             "summary" : report a summary of profiling result;
                             "full"    : other than a summary result, this mode will report unfiltered profiling results with more detail;
                             "tree"    : report results with lineage of taxonomy;
                             "class"   : output results of classified reads;
                             "extract" : extract mapped reads;
+                            "lineage" : output abundance and lineage in a line;
 						  Note that only results/reads belongs to descendants of TAXID will be reported/extracted if option [--taxonomy TAXID] is specified. [default: summary]""" )
 
 	p.add_argument( '-x','--taxonomy', metavar='[TAXID]', type=str,
@@ -396,6 +397,28 @@ def outputResultsAsRanks( res_rollup, o, tg_rank, relAbu, mode, mc, mr, ml ):
 				)
 			)
 
+def outputResultsAsLineage( res_rollup, o, tg_rank, relAbu, mode, mc, mr, ml ):
+	for tid in res_rollup:
+		rank = gt.taxid2rank(tid)
+
+		if rank != tg_rank or ( mc > res_rollup[tid]["LL"]/res_rollup[tid]["SL"] or mr > int(res_rollup[tid]["MR"]) or ml > int(res_rollup[tid]["LL"]) ):
+			continue
+
+		if relAbu == "LINEAR_LENGTH":
+			abundance = int(res_rollup[tid]["LL"])
+		elif relAbu == "TOTAL_BP_MAPPED":
+			abundance = int(res_rollup[tid]["MB"])
+		elif relAbu == "READ_COUNT":
+			abundance = int(res_rollup[tid]["MR"])
+		else:
+			abundance = int(res_rollup[tid]["MB"])/int(res_rollup[tid]["LL"])
+
+		o.write( "%s\t%s\n" %
+			( abundance,
+			  '\t'.join( gt.taxid2lineage(tid).split('|') )
+			)
+		)
+
 def readMapping( reads, db, threads, mm_penalty, samfile, logfile ):
 	"""
 	mapping reads to database
@@ -486,5 +509,7 @@ if __name__ == '__main__':
 			outputResultsAsRanks( res_rollup, out_fp, argvs.dbLevel, argvs.relAbu, argvs.mode, argvs.minCov, argvs.minReads, argvs.minLen )
 		elif argvs.mode == 'tree':
 			outputResultsAsTree( "1", res_tree, res_rollup, "", argvs.taxonomy, out_fp, argvs.minCov, argvs.minReads, argvs.minLen )
+		elif argvs.mode == 'lineage':
+			outputResultsAsLineage( res_rollup, out_fp, argvs.dbLevel, argvs.relAbu, argvs.mode, argvs.minCov, argvs.minReads, argvs.minLen )
 
 		sys.stderr.write( "[%s] Done taxonomy preofiling; %s results printed to %s.\n" % (timeSpend(start), argvs.mode, outfile) )
