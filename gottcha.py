@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 __author__    = "Po-E (Paul) Li, Bioscience Division, Los Alamos National Laboratory"
 __credits__   = ["Po-E Li", "Jason Gans", "Tracey Freites", "Patrick Chain"]
@@ -25,9 +25,8 @@ License for more details.
 """
 
 import argparse as ap, textwrap as tw
-import sys, time
+import sys, os, time, subprocess
 import gottcha_taxonomy as gt
-from subprocess import getstatusoutput
 from re import search
 from multiprocessing import Pool
 from itertools import chain
@@ -93,11 +92,14 @@ def parse_params( ver ):
 	p.add_argument( '-ml','--minLen', metavar='<INT>', type=int, default=60,
 					help="Minimum unique length to be considered valid in abundance calculation [default: 60]")
 
+	p.add_argument( '-nc','--noCutoff', action="store_true",
+					help="Remove all cutoffs. This option is equivalent to use [-mc 0 -mr 0 -ml 0].")
+
 	p.add_argument( '-c','--stdout', action="store_true",
 					help="Write on standard output.")
 
-	p.add_argument( '-v','--verbose', action="store_true",
-	                help="Enable verbose output")
+	p.add_argument( '--silent', action="store_true",
+	                help="Disable all messages.")
 
 	args_parsed = p.parse_args()
 
@@ -109,6 +111,18 @@ def parse_params( ver ):
 
 	if args_parsed.input and args_parsed.sam:
 		p.error( '--input and --same are incompatible options.' )
+
+	if args_parsed.database:
+		if not os.path.isfile( args_parsed.database + ".amb" ):
+			p.error( 'Incorrect BWA index: missing %s.amb.' % args_parsed.database )
+		if not os.path.isfile( args_parsed.database + ".ann" ):
+			p.error( 'Incorrect BWA index: missing %s.ann.' % args_parsed.database )
+		if not os.path.isfile( args_parsed.database + ".pac" ):
+			p.error( 'Incorrect BWA index: missing %s.pac.' % args_parsed.database )
+		if not os.path.isfile( args_parsed.database + ".bwt" ):
+			p.error( 'Incorrect BWA index: missing %s.bwt.' % args_parsed.database )
+		if not os.path.isfile( args_parsed.database + ".sa" ):
+			p.error( 'Incorrect BWA index: missing %s.sa.' % args_parsed.database )
 
 	if not args_parsed.prefix:
 		if args_parsed.input:
@@ -130,7 +144,18 @@ def parse_params( ver ):
 		else:
 			p.error( '--dbLevel is missing and cannot be auto-detected.' )
 
+	if args_parsed.noCutoff:
+		#p.error( 'conflict options: cutoff(s) are specified with --noCutoff option.' )
+		args_parsed.minCov = 0
+		args_parsed.minReads = 0
+		args_parsed.minLen = 0
+
 	return args_parsed
+
+def dependency_check(cmd):
+	proc = subprocess.Popen("which " + cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	outs, errs = proc.communicate()
+	return outs.decode().rstrip() if proc.returncode == 0 else False
 
 def join_ranges(data, offset=0):
 	"""
@@ -425,18 +450,32 @@ def readMapping( reads, db, threads, mm_penalty, samfile, logfile ):
 	"""
 	input_file = " ".join(reads)
 	bwa_cmd = "bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -P -S -t%s %s %s | samtools view -S -F4 - > %s 2> %s" % ( mm_penalty, threads, db, input_file, samfile, logfile )
-	exitcode, msg = getstatusoutput( bwa_cmd )
+	exitcode, msg = subprocess.getstatusoutput( bwa_cmd )
 	return exitcode, bwa_cmd
+
+def print_message( msg, silent, start):
+	if not silent:
+		sys.stderr.write( "[%s] %s\n" % (timeSpend(start), msg) )
 
 if __name__ == '__main__':
 	argvs    = parse_params( __version__ )
-	start    = time.time()
+	begin_t  = time.time()
 	numlines = 10000
 	sam_fp   = argvs.sam[0] if argvs.sam else ""
 	samfile  = "%s/%s.gottcha_%s.sam" % ( argvs.outdir, argvs.prefix, argvs.dbLevel ) if not argvs.sam else sam_fp.name
 	logfile  = "%s/%s.gottcha_%s.log" % ( argvs.outdir, argvs.prefix, argvs.dbLevel )
 
-	sys.stderr.write( "[%s] Starting GOTTCHA (v%s)\n" % (timeSpend(start), __version__) )
+	print_message( "Starting GOTTCHA (v%s)" % __version__, argvs.silent, begin_t )
+
+	#dependency check
+	if sys.version_info < (3,0):
+		sys.exit("[ERROR] Python 3.0 or above is required.")
+
+	if not dependency_check("bwa"):
+		sys.exit("[ERROR] Executable bwa not found.")
+
+	if not dependency_check("samtools"):
+		sys.exit("[ERROR] Executable samtools not found.")
 
 	#prepare output object
 	out_fp = sys.stdout
@@ -447,63 +486,62 @@ if __name__ == '__main__':
 		outfile = "%s/%s.%s%s.%s" % ( argvs.outdir, argvs.prefix, argvs.mode, tg_taxid, ext)
 		out_fp = open( outfile, 'w')
 
-	verbose_msg = """[%s] Arguments checked:
-           Input reads    : %s
-           Input SAM file : %s
-           Database       : %s
-           Database level : %s
-           Abundance      : %s
-           Output path    : %s
-           Prefix         : %s
-           Mode           : %s
-           Specific taxid : %s
-           Threads        : %d
-           Minimal L_DOC  : %s
-           Minimal L_LEN  : %s
-           Minimal reads  : %s\n""" % (
-		timeSpend(start), argvs.input, samfile, argvs.database, argvs.dbLevel, argvs.relAbu,
-		argvs.outdir, argvs.prefix, argvs.mode, argvs.taxonomy, argvs.threads, argvs.minCov, argvs.minLen, argvs.minReads
-	) if argvs.verbose else ""
-	sys.stderr.write( verbose_msg )
+	print_message( "Arguments and dependencies checked:", argvs.silent, begin_t )
+	print_message( "    Input reads      : %s" % argvs.input,     argvs.silent, begin_t )
+	print_message( "    Input SAM file   : %s" % samfile,         argvs.silent, begin_t )
+	print_message( "    Database         : %s" % argvs.database,  argvs.silent, begin_t )
+	print_message( "    Database level   : %s" % argvs.dbLevel,   argvs.silent, begin_t )
+	print_message( "    Mismatch penalty : %s" % argvs.mismatch,  argvs.silent, begin_t )
+	print_message( "    Abundance        : %s" % argvs.relAbu,    argvs.silent, begin_t )
+	print_message( "    Output path      : %s" % argvs.outdir,    argvs.silent, begin_t )
+	print_message( "    Prefix           : %s" % argvs.prefix,    argvs.silent, begin_t )
+	print_message( "    Mode             : %s" % argvs.mode,      argvs.silent, begin_t )
+	print_message( "    Specific taxid   : %s" % argvs.taxonomy,  argvs.silent, begin_t )
+	print_message( "    Threads          : %d" % argvs.threads,   argvs.silent, begin_t )
+	print_message( "    Minimal L_DOC    : %s" % argvs.minCov,    argvs.silent, begin_t )
+	print_message( "    Minimal L_LEN    : %s" % argvs.minLen,    argvs.silent, begin_t )
+	print_message( "    Minimal reads    : %s" % argvs.minReads,  argvs.silent, begin_t )
+	print_message( "    BWA path         : %s" % dependency_check("bwa"),       argvs.silent, begin_t )
+	print_message( "    SAMTOOLS path    : %s" % dependency_check("samtools"),  argvs.silent, begin_t )
 
 	#load taxonomy
+	print_message( "Loading taxonomy information...", argvs.silent, begin_t )
 	gt.loadTaxonomy()
-	verbose_msg = "[%s] Taxonomy information loaded.\n" % timeSpend(start) if argvs.verbose else ""
-	sys.stderr.write( verbose_msg )
+	print_message( "Done.", argvs.silent, begin_t )
 
-	#load strain
-	gt.loadStrainName()
-	verbose_msg = "[%s] Non-standard groups/strains information loaded.\n" % timeSpend(start) if argvs.verbose else ""
-	sys.stderr.write( verbose_msg )
+	#load user-defined strain name
+	#if os.path.isfile( argvs.database + ".list" ):
+	#	print_message( "Loading non-standard groups/strains information...",  argvs.silent, begin_t )
+	#	gt.loadStrainName( argvs.database + ".list" )
+	#	print_message( "Done",  argvs.silent, begin_t )
 
 	if argvs.input:
-		verbose_msg = "[%s] Running read-mapping...\n" % timeSpend(start) if argvs.verbose else ""
-		sys.stderr.write( verbose_msg )
+		print_message( "Running read-mapping...", argvs.silent, begin_t )
 		exitcode, cmd = readMapping( argvs.input, argvs.database, argvs.threads, argvs.mismatch, samfile, logfile )
-		verbose_msg  = "[%s] Logfile saved to %s.\n" % (timeSpend(start), logfile) if argvs.verbose else ""
-		verbose_msg += "[%s] COMMAND: %s\n" % (timeSpend(start), cmd) if argvs.verbose else ""
-		sys.stderr.write( verbose_msg )
+		print_message( "Logfile saved to %s." % logfile, argvs.silent, begin_t )
+		#print_message( "COMMAND: %s" % cmd, argvs.silent, begin_t )
 
-		if exitcode:
+		if exitcode != 0:
 			sys.exit( "[%s] ERROR: error occurred while running read mapping (exit code: %s).\n" % (timeSpend(start), exitcode) )
 		else:
-			sys.stderr.write( "[%s] Done mapping reads to %s signature database.\n" % (timeSpend(start), argvs.dbLevel) )
+			print_message( "Done mapping reads to %s signature database." % argvs.dbLevel, argvs.silent, begin_t )
+			print_message( "Mapped SAM file saved to %s." % samfile, argvs.silent, begin_t )
 			sam_fp = open( samfile, "r" )
 
 	if argvs.mode == 'class':
 		processSAMfileReadClass( sam_fp, out_fp, argvs.dbLevel, argvs.taxonomy )
-		sys.stderr.write( "[%s] Done classifying reads. Results printed to %s.\n" % (timeSpend(start), outfile) )
+		print_message( "Done classifying reads. Results printed to %s." % outfile, argvs.silent, begin_t )
 
 	elif argvs.mode == 'extract':
 		processSAMfileReadExtract( sam_fp, out_fp, argvs.taxonomy )
-		sys.stderr.write( "[%s] Done extracting reads to %s.\n" % timeSpend(start), outfile )
+		print_message( "Done extracting reads to %s." % outfile, argvs.silent, begin_t )
 
 	else:
 		(res, mapped_r_cnt) = processSAMfile( sam_fp, argvs.threads, numlines)
-		sys.stderr.write( "[%s] Done processing SAM file. %s reads mapped.\n" % (timeSpend(start), mapped_r_cnt) )
+		print_message( "Done processing SAM file. %s reads mapped." % mapped_r_cnt, argvs.silent, begin_t )
 
 		(res_rollup, res_tree) = taxonomyRollUp( res )
-		sys.stderr.write( "[%s] Done taxonomy rolling up.\n" % timeSpend(start) )
+		print_message( "Done taxonomy rolling up.", argvs.silent, begin_t )
 
 		if argvs.mode == 'summary' or argvs.mode == 'full':
 			outputResultsAsRanks( res_rollup, out_fp, argvs.dbLevel, argvs.relAbu, argvs.mode, argvs.minCov, argvs.minReads, argvs.minLen )
@@ -512,4 +550,5 @@ if __name__ == '__main__':
 		elif argvs.mode == 'lineage':
 			outputResultsAsLineage( res_rollup, out_fp, argvs.dbLevel, argvs.relAbu, argvs.mode, argvs.minCov, argvs.minReads, argvs.minLen )
 
-		sys.stderr.write( "[%s] Done taxonomy preofiling; %s results printed to %s.\n" % (timeSpend(start), argvs.mode, outfile) )
+		print_message( "Done taxonomy preofiling; %s results printed to %s." % (argvs.mode, outfile), argvs.silent, begin_t )
+

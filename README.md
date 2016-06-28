@@ -35,9 +35,9 @@ Python 3.0+ is required. Linux (2.6 kernel or later) or Mac (OSX 10.6 Snow Leopa
 ```python
 usage: gottcha.py [-h] (-i [FASTQ] [[FASTQ] ...] | -s [SAMFILE])
                   [-d [BWA_INDEX]] [-l [LEVEL]] [-pm <INT>]
-                  [-m {summary,full,tree,class,extract}] [-x [TAXID]]
+                  [-m {summary,full,tree,class,extract,lineage}] [-x [TAXID]]
                   [-r [FIELD]] [-t <INT>] [-o [DIR]] [-p <STR>] [-mc <FLOAT>]
-                  [-mr <INT>] [-ml <INT>] [-c] [-v]
+                  [-mr <INT>] [-ml <INT>] [-nc] [-c] [--silent]
 ```
 Genomic Origin Through Taxonomic CHAllenge (GOTTCHA) is an annotation-
 independent and signature-based metagenomic taxonomic profiling tool that has
@@ -68,7 +68,7 @@ Specify the taxonomic level of the input database. You can choose one rank from 
 ```
 Mismatch penalty for BWA-MEM (pass to option -B while BWA-MEM is running). You can use 99 for not allowing mismatch in alignments (except for extreme cases). [default: 5]
 ```
--m {summary,full,tree,class,extract}, --mode {summary,full,tree,class,extract}
+-m {summary,full,tree,class,extract,lineage}, --mode {summary,full,tree,class,extract,lineage}
 ```
 You can specify one of the following output modes:
 
@@ -76,7 +76,10 @@ You can specify one of the following output modes:
 * "full" : other than a summary result, this mode will report unfiltered profiling results with more detail;
 * "tree" : report results with lineage of taxonomy;
 * "class" : output results of classified reads;
-* "extract" : extract mapped reads; Note that only results/reads belongs to descendants of
+* "extract" : extract mapped reads;
+* "lineage" : output abundance and lineage in a line
+
+Note that only results/reads belongs to descendants of
 TAXID will be reported/extracted if option [--taxonomy TAXID] is specified. [default: summary]
 ```
 -x [TAXID], --taxonomy [TAXID]
@@ -111,13 +114,17 @@ Minimum number of reads to be considered valid in abundance calculation [default
 ```
 Minimum unique length to be considered valid in abundance calculation [default: 60]
 ```
+-nc, --noCutoff
+```
+Remove all cutoffs. This option is equivalent to use [-mc 0 -mr 0 -ml 0].
+```
 -c, --stdout
 ```
 Write on standard output.
 ```
--v, --verbose
+--silent
 ```
-Enable verbose output
+Disable all messages.
 ```
 -h, --help
 ```
