@@ -240,7 +240,7 @@ def getTaxRank( taxID, guess_strain=True ):
 	else:
 		return taxRanks[taxID]
 
-def loadTaxonomy( custom_taxonomy_file="", taxonomy_file = taxonomyDir+"/taxonomy.tsv" ):
+def loadTaxonomy( taxonomy_file = taxonomyDir+"/taxonomy.tsv", custom_taxonomy_file=""):
 	if DEBUG: sys.stderr.write( "[INFO] Open taxonomy file: %s\n"%(taxonomy_file) )
 
 	try:

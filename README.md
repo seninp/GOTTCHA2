@@ -22,7 +22,7 @@ superior performance compared with other available tools.
 -------------------------------------------------------------------
 ## DISCLOSURE
 
-GOTTCHA2 is currently under development in ALPHA stage. Databases for v1 will not be compatible with v2.
+GOTTCHA2 is currently under development in BETA stage. Databases for v1 will not be compatible with v2.
 
 -------------------------------------------------------------------
 ## SYSTEM REQUIREMENT
@@ -34,7 +34,7 @@ Python 3.0+ is required. Linux (2.6 kernel or later) or Mac (OSX 10.6 Snow Leopa
 
 ```python
 usage: gottcha.py [-h] (-i [FASTQ] [[FASTQ] ...] | -s [SAMFILE])
-                  [-d [BWA_INDEX]] [-l [LEVEL]] [-pm <INT>]
+                  [-d [BWA_INDEX]] [-l [LEVEL]] [-ti [FILE]] [-pm <INT>]
                   [-m {summary,full,tree,class,extract,lineage}] [-x [TAXID]]
                   [-r [FIELD]] [-t <INT>] [-o [DIR]] [-p <STR>] [-mc <FLOAT>]
                   [-mr <INT>] [-ml <INT>] [-nc] [-c] [--silent]
@@ -43,7 +43,7 @@ Genomic Origin Through Taxonomic CHAllenge (GOTTCHA) is an annotation-
 independent and signature-based metagenomic taxonomic profiling tool that has
 significantly smaller FDR than other profiling tools. This program is a
 wrapper to map input reads to pre-computed signature databases using BWA-MEM
-and/or to profile mapped reads in SAM format. (VERSION: 2.0 ALPHA)
+and/or to profile mapped reads in SAM format. (VERSION: 2.0 BETA)
 
 optional arguments:
 
@@ -63,6 +63,10 @@ The path of signature database. The database can be in FASTA format or BWA index
 -l [LEVEL], --dbLevel [LEVEL]
 ```
 Specify the taxonomic level of the input database. You can choose one rank from "superkingdom", "phylum","class", "order", "family", "genus", "species" and "strain". The value will be auto-detected if the input database ended with levels (e.g. GOTTCHA_db.species).
+```
+-ti [FILE], --taxInfo [FILE]
+```
+Specify the path of taxonomy information file (taxonomy.tsv). GOTTCHA2 will try to locate this file when user doesn't specify a path. If '--database' option is used, the program will try to find this file in the directory of specified database. If not, the 'database' directory under the location of gottcha.py will be used as default.
 ```
 -pm <INT>, --mismatch <INT>
 ```

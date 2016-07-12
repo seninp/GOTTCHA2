@@ -2,7 +2,7 @@
 
 __author__    = "Po-E (Paul) Li, Bioscience Division, Los Alamos National Laboratory"
 __credits__   = ["Po-E Li", "Jason Gans", "Tracey Freites", "Patrick Chain"]
-__version__   = "2.0 ALPHA"
+__version__   = "2.0 BETA"
 __date__      = "2016/05/31"
 __copyright__ = """
 Copyright (2014). Los Alamos National Security, LLC. This material was produced
@@ -52,6 +52,9 @@ def parse_params( ver ):
 	p.add_argument( '-l','--dbLevel', metavar='[LEVEL]', type=str, default='',
 	                choices=['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species', 'strain'],
 	                help="""Specify the taxonomic level of the input database. You can choose one rank from "superkingdom", "phylum", "class", "order", "family", "genus", "species" and "strain". The value will be auto-detected if the input database ended with levels (e.g. GOTTCHA_db.species).""")
+
+	p.add_argument( '-ti','--taxInfo', metavar='[FILE]', type=str, default='',
+	                help="""Specify the path of taxonomy information file (taxonomy.tsv). GOTTCHA2 will try to locate this file when user doesn't specify a path. If '--database' option is used, the program will try to find this file in the directory of specified database. If not, the 'database' directory under the location of gottcha.py will be used as default.""")
 
 	p.add_argument( '-pm','--mismatch', metavar='<INT>', type=int, default=5,
 					help="Mismatch penalty for BWA-MEM (pass to option -B while BWA-MEM is running). You can use 99 for not allowing mismatch in alignments (except for extreme cases). [default: 5]")
@@ -123,6 +126,17 @@ def parse_params( ver ):
 			p.error( 'Incorrect BWA index: missing %s.bwt.' % args_parsed.database )
 		if not os.path.isfile( args_parsed.database + ".sa" ):
 			p.error( 'Incorrect BWA index: missing %s.sa.' % args_parsed.database )
+
+	if not args_parsed.taxInfo:
+		if args_parsed.database:
+			db_dir = search( '^(.*?)[^\/]+$', args_parsed.database )
+			args_parsed.taxInfo = db_dir.group(1) + "taxonomy.tsv"
+		else:
+			bin_dir = os.path.dirname(os.path.realpath(__file__))
+			args_parsed.taxInfo = bin_dir + "/database/taxonomy.tsv"
+
+	if not os.path.isfile( args_parsed.taxInfo ):
+		p.error( 'Taxonomy information (taxonomy.tsv) not found.' )
 
 	if not args_parsed.prefix:
 		if args_parsed.input:
@@ -323,13 +337,14 @@ def taxonomyRollUp( r ):
 
 	return res_rollup, res_tree
 
-def outputResultsAsTree( tid, res_tree, res_rollup, indent, taxid_fi, o, mc, mr, ml ):
+def outputResultsAsTree( tid, res_tree, res_rollup, indent, dbLevel, lvlFlag, taxid_fi, o, mc, mr, ml ):
 	"""
 	iterate taxonomy tree and print results recursively
 	"""
 	if int(tid) == 1:
 		o.write( "%s%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % ( "", "NAME", "LEVEL", "READ_COUNT", "TOTAL_BP_MAPPED", "TOTAL_BP_MISMATCH", "LINEAR_LENGTH", "LINEAR_COV", "LINEAR_DOC" ) )
 	else:
+		if gt.taxid2rank(tid) == dbLevel: lvlFlag = 1
 		if mc <= int(res_rollup[tid]["MB"])/int(res_rollup[tid]["LL"]) and mr <= int(res_rollup[tid]["MR"]) and ml <= res_rollup[tid]["LL"]:
 			o.write( "%s%s\t%s\t%s\t%s\t%s\t%s\t%.4f\t%.4f\n" % (
 				indent,
@@ -351,10 +366,13 @@ def outputResultsAsTree( tid, res_tree, res_rollup, indent, taxid_fi, o, mc, mr,
 				if not isDescendant( tid, taxid_fi ):
 					continue
 
-			if mc > res_rollup[tid]["LL"]/res_rollup[tid]["SL"] or mr > int(res_rollup[tid]["MR"]) or ml > int(res_rollup[tid]["LL"]) :
+			if lvlFlag and gt.taxid2rank(cid) != dbLevel:
 				continue
 
-			outputResultsAsTree( cid, res_tree, res_rollup, indent, taxid_fi, o, mc, mr, ml )
+			if res_rollup[tid] and ( mc > int(res_rollup[tid]["LL"])/int(res_rollup[tid]["SL"]) or mr > int(res_rollup[tid]["MR"]) or ml > int(res_rollup[tid]["LL"]) ):
+				continue
+
+			outputResultsAsTree( cid, res_tree, res_rollup, indent, dbLevel, lvlFlag, taxid_fi, o, mc, mr, ml )
 
 def outputResultsAsRanks( res_rollup, o, tg_rank, relAbu, mode, mc, mr, ml ):
 	output = gt._autoVivification()
@@ -506,7 +524,7 @@ if __name__ == '__main__':
 
 	#load taxonomy
 	print_message( "Loading taxonomy information...", argvs.silent, begin_t )
-	gt.loadTaxonomy()
+	gt.loadTaxonomy( argvs.taxInfo )
 	print_message( "Done.", argvs.silent, begin_t )
 
 	#load user-defined strain name
@@ -546,7 +564,7 @@ if __name__ == '__main__':
 		if argvs.mode == 'summary' or argvs.mode == 'full':
 			outputResultsAsRanks( res_rollup, out_fp, argvs.dbLevel, argvs.relAbu, argvs.mode, argvs.minCov, argvs.minReads, argvs.minLen )
 		elif argvs.mode == 'tree':
-			outputResultsAsTree( "1", res_tree, res_rollup, "", argvs.taxonomy, out_fp, argvs.minCov, argvs.minReads, argvs.minLen )
+			outputResultsAsTree( "1", res_tree, res_rollup, "", argvs.dbLevel, 0, argvs.taxonomy, out_fp, argvs.minCov, argvs.minReads, argvs.minLen )
 		elif argvs.mode == 'lineage':
 			outputResultsAsLineage( res_rollup, out_fp, argvs.dbLevel, argvs.relAbu, argvs.mode, argvs.minCov, argvs.minReads, argvs.minLen )
 
