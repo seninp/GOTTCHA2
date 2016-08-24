@@ -2,7 +2,7 @@
 
 __author__    = "Po-E (Paul) Li, Bioscience Division, Los Alamos National Laboratory"
 __credits__   = ["Po-E Li", "Jason Gans", "Tracey Freites", "Patrick Chain"]
-__version__   = "2.0 BETA"
+__version__   = "2.1 BETA"
 __date__      = "2016/05/31"
 __copyright__ = """
 Copyright (2014). Los Alamos National Security, LLC. This material was produced
@@ -27,7 +27,7 @@ License for more details.
 import argparse as ap, textwrap as tw
 import sys, os, time, subprocess
 import gottcha_taxonomy as gt
-from re import search
+from re import search,findall
 from multiprocessing import Pool
 from itertools import chain
 
@@ -114,6 +114,12 @@ def parse_params( ver ):
 
 	if args_parsed.input and args_parsed.sam:
 		p.error( '--input and --same are incompatible options.' )
+
+	if args_parsed.database:
+		#assign default path for database name
+		if "/" not in args_parsed.database and not os.path.isfile( args_parsed.database + ".amb" ):
+			bin_dir = os.path.dirname(os.path.realpath(__file__))
+			args_parsed.database = bin_dir + "/database/" + args_parsed.database
 
 	if args_parsed.database:
 		if not os.path.isfile( args_parsed.database + ".amb" ):
@@ -291,6 +297,8 @@ def processSAMfileReadExtract( f, o, taxid ):
 		fullLineage = gt.taxid2fullLineage(t)
 
 		if int(flag) & 16:
+			g = findall("\d+\w", cigr)
+			cigr = "".join(list(reversed(g)))
 			rseq = seqReverseComplement(rseq)
 			rq = rq[::-1]
 
@@ -467,7 +475,7 @@ def readMapping( reads, db, threads, mm_penalty, samfile, logfile ):
 	mapping reads to database
 	"""
 	input_file = " ".join(reads)
-	bwa_cmd = "bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -P -S -t%s %s %s | samtools view -S -F4 - > %s 2> %s" % ( mm_penalty, threads, db, input_file, samfile, logfile )
+	bwa_cmd = "set -eo pipefail; bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -P -S -t%s %s %s | samtools view -S -F4 -F2048 > %s 2> %s" % ( mm_penalty, threads, db, input_file, samfile, logfile )
 	exitcode, msg = subprocess.getstatusoutput( bwa_cmd )
 	return exitcode, bwa_cmd
 
@@ -540,7 +548,7 @@ if __name__ == '__main__':
 		#print_message( "COMMAND: %s" % cmd, argvs.silent, begin_t )
 
 		if exitcode != 0:
-			sys.exit( "[%s] ERROR: error occurred while running read mapping (exit code: %s).\n" % (timeSpend(start), exitcode) )
+			sys.exit( "[%s] ERROR: error occurred while running read mapping (exit code: %s).\n" % (timeSpend(begin_t), exitcode) )
 		else:
 			print_message( "Done mapping reads to %s signature database." % argvs.dbLevel, argvs.silent, begin_t )
 			print_message( "Mapped SAM file saved to %s." % samfile, argvs.silent, begin_t )
