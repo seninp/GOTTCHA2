@@ -475,7 +475,7 @@ def readMapping( reads, db, threads, mm_penalty, samfile, logfile ):
 	mapping reads to database
 	"""
 	input_file = " ".join(reads)
-	bwa_cmd = "set -eo pipefail; bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -P -S -t%s %s %s | samtools view -S -F4 -F2048 > %s 2> %s" % ( mm_penalty, threads, db, input_file, samfile, logfile )
+	bwa_cmd = "set -eo pipefail; bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -t%s %s %s | samtools view -S -F4 -F2048 - > %s 2> %s" % ( mm_penalty, threads, db, input_file, samfile, logfile )
 	exitcode, msg = subprocess.getstatusoutput( bwa_cmd )
 	return exitcode, bwa_cmd
 
