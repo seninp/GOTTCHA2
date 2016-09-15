@@ -475,9 +475,11 @@ def readMapping( reads, db, threads, mm_penalty, samfile, logfile ):
 	mapping reads to database
 	"""
 	input_file = " ".join(reads)
-	bwa_cmd = "set -eo pipefail; bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -t%s %s %s | awk -F\\\\t '!/^@/ && !and($2,4) && !and($2,2048){print $_}' > %s 2> %s" % ( mm_penalty, threads, db, input_file, samfile, logfile )
-	exitcode, msg = subprocess.getstatusoutput( bwa_cmd )
-	return exitcode, bwa_cmd
+	bwa_cmd    = "bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -t%s %s %s" % (mm_penalty, threads, db, input_file )
+	filter_cmd = "awk -F\\\\t '!/^@/ && !and($2,4) && !and($2,2048){print $_}'"
+	cmd        = "%s | %s > %s 2> %s" % ( bwa_cmd, filter_cmd, samfile, logfile )
+	exitcode, msg = subprocess.getstatusoutput( cmd )
+	return exitcode, bwa_cmd, msg
 
 def print_message( msg, silent, start):
 	if not silent:
@@ -499,9 +501,6 @@ if __name__ == '__main__':
 
 	if not dependency_check("bwa"):
 		sys.exit("[ERROR] Executable bwa not found.")
-
-	if not dependency_check("samtools"):
-		sys.exit("[ERROR] Executable samtools not found.")
 
 	#prepare output object
 	out_fp = sys.stdout
@@ -528,7 +527,7 @@ if __name__ == '__main__':
 	print_message( "    Minimal L_LEN    : %s" % argvs.minLen,    argvs.silent, begin_t )
 	print_message( "    Minimal reads    : %s" % argvs.minReads,  argvs.silent, begin_t )
 	print_message( "    BWA path         : %s" % dependency_check("bwa"),       argvs.silent, begin_t )
-	print_message( "    SAMTOOLS path    : %s" % dependency_check("samtools"),  argvs.silent, begin_t )
+	#print_message( "    SAMTOOLS path    : %s" % dependency_check("samtools"),  argvs.silent, begin_t )
 
 	#load taxonomy
 	print_message( "Loading taxonomy information...", argvs.silent, begin_t )
@@ -543,12 +542,12 @@ if __name__ == '__main__':
 
 	if argvs.input:
 		print_message( "Running read-mapping...", argvs.silent, begin_t )
-		exitcode, cmd = readMapping( argvs.input, argvs.database, argvs.threads, argvs.mismatch, samfile, logfile )
+		exitcode, cmd, msg = readMapping( argvs.input, argvs.database, argvs.threads, argvs.mismatch, samfile, logfile )
 		print_message( "Logfile saved to %s." % logfile, argvs.silent, begin_t )
 		#print_message( "COMMAND: %s" % cmd, argvs.silent, begin_t )
 
 		if exitcode != 0:
-			sys.exit( "[%s] ERROR: error occurred while running read mapping (exit code: %s).\n" % (timeSpend(begin_t), exitcode) )
+			sys.exit( "[%s] ERROR: error occurred while running read mapping (exit: %s, message: %s).\n" % (timeSpend(begin_t), exitcode, msg) )
 		else:
 			print_message( "Done mapping reads to %s signature database." % argvs.dbLevel, argvs.silent, begin_t )
 			print_message( "Mapped SAM file saved to %s." % samfile, argvs.silent, begin_t )
