@@ -506,6 +506,9 @@ if __name__ == '__main__':
 	out_fp = sys.stdout
 	outfile = "STDOUT"
 	if not argvs.stdout:
+		#create output directory if not exists
+		if not os.path.exists(argvs.outdir):
+			os.makedirs(argvs.outdir)
 		ext = "fastq" if argvs.mode == "extract" else "tsv"
 		tg_taxid = argvs.taxonomy if argvs.taxonomy else ""
 		outfile = "%s/%s.%s%s.%s" % ( argvs.outdir, argvs.prefix, argvs.mode, tg_taxid, ext)
