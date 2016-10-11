@@ -474,12 +474,19 @@ def readMapping( reads, db, threads, mm_penalty, samfile, logfile ):
 	"""
 	mapping reads to database
 	"""
+
 	input_file = " ".join(reads)
+
+	bash_cmd   = "set -o pipefail; set -x;"
 	bwa_cmd    = "bwa mem -k30 -T30 -A1 -B%s -O99 -E99 -L0 -t%s %s %s" % (mm_penalty, threads, db, input_file )
 	filter_cmd = "awk -F\\\\t '!/^@/ && !and($2,4) && !and($2,2048){print $_}'"
-	cmd        = "%s | %s > %s 2> %s" % ( bwa_cmd, filter_cmd, samfile, logfile )
-	exitcode, msg = subprocess.getstatusoutput( cmd )
-	return exitcode, bwa_cmd, msg
+	cmd        = "%s %s 2> %s | %s > %s" % ( bash_cmd, bwa_cmd, logfile, filter_cmd, samfile )
+
+	proc = subprocess.Popen( cmd, shell=True, executable='/bin/bash', stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+	outs, errs = proc.communicate()
+	exitcode = proc.poll()
+
+	return exitcode, bwa_cmd, errs
 
 def print_message( msg, silent, start):
 	if not silent:
