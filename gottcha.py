@@ -585,5 +585,5 @@ if __name__ == '__main__':
 		elif argvs.mode == 'lineage':
 			outputResultsAsLineage( res_rollup, out_fp, argvs.dbLevel, argvs.relAbu, argvs.mode, argvs.minCov, argvs.minReads, argvs.minLen )
 
-		print_message( "Done taxonomy preofiling; %s results printed to %s." % (argvs.mode, outfile), argvs.silent, begin_t )
+		print_message( "Done taxonomy profiling; %s results printed to %s." % (argvs.mode, outfile), argvs.silent, begin_t )
 
